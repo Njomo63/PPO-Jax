@@ -28,3 +28,9 @@ $$
 
 The value function represents the expected return when starting from a specific state and following a particular policy thereafter.
 
+## Actor-Critic Architecture
+PPO uses an actor-critic architecture that combines two neural networks working in concert. The actor network (policy) learns which actions to take in each state, while the critic network (value function) evaluates how good those states are.
+
+The actor network outputs a probability distribution over actions, from which we sample during training to encourage exploration. The actor is trained to maximize the PPO objective, which encourages actions that lead to higher advantages while maintaining proximity to the previous policy.
+
+The critic network estimates the value function $V(s)$ which represents the expected return from each state. It is trained to minimize the mean squared error between its predictions and the actual returns observed during training. When we calculate advantages (which guide the actor's learning), we're effectively asking "did this specific action perform better or worse than what the critic expected?" This is why it's called "critic" - it provides a baseline for judging the actor's individual action choices. This relationship creates a productive feedback loop: the actor tries to find better actions, the critic evaluates the resulting states, and the advantages derived from these evaluations help the actor improve further.
