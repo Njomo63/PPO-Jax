@@ -144,7 +144,7 @@ def mlp_block(x: jax.Array, model: Actor | Critic) -> jax.Array:
     x = jnp.einsum("k,kl->l", x, model.layer_3) + model.bias_3
     return x
   
-@jax_pytree_struct
+@partial(jax_pytree_struct, meta_fields=("actor_opt", "critic_opt"))
 class TrainingState:
     actor: Actor
     critic: Critic
@@ -312,8 +312,8 @@ def collect_data(state: TrainingState, env: gym.Env, cfg: Config):
     
     return trajectories, state
 
-
-def process_trajectories(state: TrainingState, trajectories: dict, cfg: Config):
+@jax.jit
+def process_trajectories(critic: Critic, trajectories: dict, cfg: Config):
     """Process trajectory data."""
     states = trajectories['states']
     actions = trajectories['actions']
@@ -322,8 +322,8 @@ def process_trajectories(state: TrainingState, trajectories: dict, cfg: Config):
     dones = 1.0 - trajectories['dones']
     log_probs = trajectories['log_probs']
     
-    values = jax.vmap(lambda s: mlp_block(s, state.critic))(states)
-    next_values = jax.vmap(lambda s: mlp_block(s, state.critic))(next_states)
+    values = jax.vmap(lambda s: mlp_block(s, critic))(states)
+    next_values = jax.vmap(lambda s: mlp_block(s, critic))(next_states)
     
     with jax.named_scope("compute_gae"):
         advantages, returns = compute_gae(rewards, values, next_values, dones, jnp.zeros_like(values[0]), cfg)
@@ -377,7 +377,7 @@ def train_ppo(env, cfg: Config):
             trajectories, state = collect_data(state, env, cfg)
         
         with jax.named_scope("process_trajectories"):
-            transitions, advantages, returns_batch = process_trajectories(state, trajectories, cfg)
+            transitions, advantages, returns_batch = process_trajectories(state.critic, trajectories, cfg)
         
         for epoch in range(cfg.num_epochs):
             state, actor_loss_val, critic_loss_val = update(
